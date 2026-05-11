@@ -80,6 +80,15 @@ function M.create_visuals()
   )
 end
 
+-- Close proxy chest if open (called before despawn/reset).
+function M.close_chest()
+  if storage.companion_chest and storage.companion_chest.valid then
+    storage.companion_chest.minable = true
+    storage.companion_chest.destroy()
+  end
+  storage.companion_chest = nil
+end
+
 -- Remove floating name and chart tag.
 function M.destroy_visuals()
   if storage.companion_name_render and storage.companion_name_render.valid then

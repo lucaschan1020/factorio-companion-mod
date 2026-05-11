@@ -41,6 +41,7 @@ function M.register()
     -- Save state and despawn.
     companion_despawn = function()
       state.companion_cmd = nil
+      utils.close_chest()
       utils.save_state()
       utils.destroy_visuals()
       if utils.companion_valid() then
@@ -54,6 +55,7 @@ function M.register()
     -- Hard reset: wipe all saved state.
     companion_reset = function()
       state.companion_cmd = nil
+      utils.close_chest()
       utils.destroy_visuals()
       if utils.companion_valid() then storage.companion.destroy() end
       storage.companion         = nil
