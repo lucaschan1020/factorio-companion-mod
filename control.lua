@@ -42,7 +42,9 @@ script.on_event("companion-open-inventory", function(event)
   if dist < 1.5 then
     local inv = storage.companion.get_inventory(defines.inventory.character_main)
     if inv then
+      game.print("[Companion] inv size=" .. #inv .. " setting opened...")
       player.opened = inv
+      game.print("[Companion] gui_type=" .. tostring(player.opened_gui_type))
     else
       game.print("[Companion] inventory is nil")
     end
