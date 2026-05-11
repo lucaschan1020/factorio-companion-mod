@@ -49,7 +49,8 @@ script.on_event(defines.events.on_tick, function()
       -- mine_entity() mines as if the character did it — respects productivity,
       -- mining speed, and all game mechanics.
       local props        = mine_cmd.entity.prototype.mineable_properties
-      local mining_ticks = math.max(1, math.floor((props.mining_time or 1) * 60 / (storage.bot.character_mining_speed or 0.5)))
+      local mining_speed = storage.bot.prototype.character_mining_speed or 0.5
+      local mining_ticks = math.max(1, math.floor((props.mining_time or 1) * 60 / mining_speed))
       if not mine_cmd.last_tick or (game.tick - mine_cmd.last_tick) >= mining_ticks then
         local success = storage.bot.mine_entity(mine_cmd.entity)
         mine_cmd.last_tick = game.tick
