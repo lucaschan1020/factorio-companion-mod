@@ -37,15 +37,6 @@ script.on_event(defines.events.on_tick, function()
     return
   end
 
-  -- Debug: print mine_cmd state every 60 ticks so we can confirm on_tick is running.
-  if game.tick % 60 == 0 then
-    if mine_cmd then
-      local dx   = mine_cmd.entity.valid and (mine_cmd.entity.position.x - storage.bot.position.x) or 0
-      local dy   = mine_cmd.entity.valid and (mine_cmd.entity.position.y - storage.bot.position.y) or 0
-      game.print("[companion] mining tick=" .. game.tick .. " dist=" .. string.format("%.2f", math.sqrt(dx*dx+dy*dy)))
-    end
-  end
-
   -- Mining takes priority.
   if mine_cmd then
     if not mine_cmd.entity.valid then
@@ -63,8 +54,8 @@ script.on_event(defines.events.on_tick, function()
       local mining_speed = storage.bot.prototype.mining_speed or 0.5
       local mining_ticks = math.max(1, math.floor((props.mining_time or 1) * 60 / mining_speed))
       if not mine_cmd.last_tick or (game.tick - mine_cmd.last_tick) >= mining_ticks then
-        local success = storage.bot.mine_entity(mine_cmd.entity)
-        game.print("[companion] mine_entity=" .. tostring(success) .. " dist=" .. string.format("%.2f", dist))
+        local inv     = storage.bot.get_inventory(defines.inventory.character_main)
+        local success = mine_cmd.entity.mine({ inventory = inv, force = true })
         mine_cmd.last_tick = game.tick
         if not success or not mine_cmd.entity.valid then
           mine_cmd = nil
