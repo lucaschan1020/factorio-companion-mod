@@ -6,6 +6,6 @@ data:extend({
     type         = "custom-input",
     name         = "companion-open-inventory",
     key_sequence = "mouse-button-1",
-    consuming    = "none",  -- does not suppress normal left-click behaviour
+    consuming    = "none",
   }
 })
