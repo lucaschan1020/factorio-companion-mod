@@ -1,0 +1,9 @@
+{
+  "name": "factorio-companion",
+  "version": "0.1.0",
+  "title": "Factorio Companion",
+  "author": "companion",
+  "description": "AI companion helper: spawns a bot character and exposes game state and actions via RCON remote interface.",
+  "dependencies": ["base >= 2.0.0"],
+  "factorio_version": "2.0"
+}
