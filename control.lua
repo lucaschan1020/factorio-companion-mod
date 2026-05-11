@@ -37,6 +37,15 @@ script.on_event(defines.events.on_tick, function()
     return
   end
 
+  -- Debug: print mine_cmd state every 60 ticks so we can confirm on_tick is running.
+  if game.tick % 60 == 0 then
+    if mine_cmd then
+      local dx   = mine_cmd.entity.valid and (mine_cmd.entity.position.x - storage.bot.position.x) or 0
+      local dy   = mine_cmd.entity.valid and (mine_cmd.entity.position.y - storage.bot.position.y) or 0
+      game.print("[companion] mining tick=" .. game.tick .. " dist=" .. string.format("%.2f", math.sqrt(dx*dx+dy*dy)))
+    end
+  end
+
   -- Mining takes priority.
   if mine_cmd then
     if not mine_cmd.entity.valid then
@@ -47,7 +56,7 @@ script.on_event(defines.events.on_tick, function()
     local dy   = mine_cmd.entity.position.y - storage.bot.position.y
     local dist = math.sqrt(dx * dx + dy * dy)
 
-    if dist <= 2.5 then
+    if dist <= 3.0 then
       storage.bot.walking_state = { walking = false, direction = defines.direction.north }
 
       local props        = mine_cmd.entity.prototype.mineable_properties
@@ -55,7 +64,7 @@ script.on_event(defines.events.on_tick, function()
       local mining_ticks = math.max(1, math.floor((props.mining_time or 1) * 60 / mining_speed))
       if not mine_cmd.last_tick or (game.tick - mine_cmd.last_tick) >= mining_ticks then
         local success = storage.bot.mine_entity(mine_cmd.entity)
-        game.print("mine_entity result: " .. tostring(success) .. " dist: " .. dist)
+        game.print("[companion] mine_entity=" .. tostring(success) .. " dist=" .. string.format("%.2f", dist))
         mine_cmd.last_tick = game.tick
         if not success or not mine_cmd.entity.valid then
           mine_cmd = nil
@@ -178,6 +187,45 @@ remote.add_interface("companion", {
   stop_walking = function()
     walk_cmd = nil
     return helpers.table_to_json({ ok = true })
+  end,
+
+  -- Debug: scan for ores within radius and return counts + nearest position.
+  find_ore = function(ore_name, radius)
+    if not (storage.bot and storage.bot.valid) then
+      return helpers.table_to_json({ error = "bot not spawned" })
+    end
+    ore_name = ore_name or "iron-ore"
+    radius   = radius   or 50
+
+    local ores = storage.bot.surface.find_entities_filtered({
+      name     = ore_name,
+      position = storage.bot.position,
+      radius   = radius,
+    })
+
+    if #ores == 0 then
+      return helpers.table_to_json({ found = 0, ore = ore_name, radius = radius, bot_position = storage.bot.position })
+    end
+
+    local nearest, nearest_dist2 = nil, math.huge
+    for _, ore in pairs(ores) do
+      local dx    = ore.position.x - storage.bot.position.x
+      local dy    = ore.position.y - storage.bot.position.y
+      local dist2 = dx * dx + dy * dy
+      if dist2 < nearest_dist2 then
+        nearest       = ore
+        nearest_dist2 = dist2
+      end
+    end
+
+    return helpers.table_to_json({
+      found        = #ores,
+      ore          = ore_name,
+      radius       = radius,
+      bot_position = storage.bot.position,
+      nearest      = { x = nearest.position.x, y = nearest.position.y },
+      distance     = math.sqrt(nearest_dist2),
+    })
   end,
 
   -- Find nearest ore within radius and start mining it (walks to it first if needed).
