@@ -34,9 +34,18 @@ script.on_event("companion-open-inventory", function(event)
   local cursor = event.cursor_position
   local dist   = math.sqrt((cursor.x - cp.x)^2 + (cursor.y - cp.y)^2)
 
+  -- Debug: print distance so we can tune the threshold
+  if dist < 5 then
+    game.print("[Companion] click dist=" .. string.format("%.2f", dist))
+  end
+
   if dist < 1.5 then
     local inv = storage.companion.get_inventory(defines.inventory.character_main)
-    if inv then player.opened = inv end
+    if inv then
+      player.opened = inv
+    else
+      game.print("[Companion] inventory is nil")
+    end
   end
 end)
 
