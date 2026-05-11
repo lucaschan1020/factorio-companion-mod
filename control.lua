@@ -43,16 +43,19 @@ script.on_event(defines.events.on_tick, function()
       mine_cmd = nil
       return
     end
-    if storage.bot.can_reach_entity(mine_cmd.entity) then
+    local dx   = mine_cmd.entity.position.x - storage.bot.position.x
+    local dy   = mine_cmd.entity.position.y - storage.bot.position.y
+    local dist = math.sqrt(dx * dx + dy * dy)
+
+    if dist <= 2.5 then
       storage.bot.walking_state = { walking = false, direction = defines.direction.north }
 
-      -- mine_entity() mines as if the character did it — respects productivity,
-      -- mining speed, and all game mechanics.
       local props        = mine_cmd.entity.prototype.mineable_properties
       local mining_speed = storage.bot.prototype.mining_speed or 0.5
       local mining_ticks = math.max(1, math.floor((props.mining_time or 1) * 60 / mining_speed))
       if not mine_cmd.last_tick or (game.tick - mine_cmd.last_tick) >= mining_ticks then
         local success = storage.bot.mine_entity(mine_cmd.entity)
+        game.print("mine_entity result: " .. tostring(success) .. " dist: " .. dist)
         mine_cmd.last_tick = game.tick
         if not success or not mine_cmd.entity.valid then
           mine_cmd = nil
