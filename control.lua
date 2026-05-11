@@ -37,11 +37,9 @@ script.on_event(defines.events.on_tick, function()
     return
   end
 
-  -- Mining takes priority over timed walk commands.
+  -- Mining takes priority.
   if mine_cmd then
     if not mine_cmd.entity.valid then
-      -- Ore patch depleted.
-      storage.bot.mining_state = { mining = false }
       mine_cmd = nil
       return
     end
@@ -49,7 +47,6 @@ script.on_event(defines.events.on_tick, function()
       storage.bot.walking_state = { walking = false, direction = defines.direction.north }
       storage.bot.mining_state  = { mining = true, position = mine_cmd.entity.position }
     else
-      -- Walk toward ore until in reach.
       storage.bot.mining_state  = { mining = false }
       storage.bot.walking_state = {
         walking   = true,
@@ -115,6 +112,18 @@ remote.add_interface("companion", {
     })
   end,
 
+  -- Returns JSON: {tick, inventory}
+  get_bot_inventory = function()
+    if not (storage.bot and storage.bot.valid) then
+      return helpers.table_to_json({ error = "bot not spawned" })
+    end
+    local inv = storage.bot.get_inventory(defines.inventory.character_main)
+    return helpers.table_to_json({
+      tick      = game.tick,
+      inventory = inv and inv.get_contents() or {},
+    })
+  end,
+
   -- Returns JSON: {tick, player_index, player_name, position, surface, inventory}
   get_player_state = function(player_index)
     local player = game.get_player(player_index or 1)
@@ -151,17 +160,13 @@ remote.add_interface("companion", {
     return helpers.table_to_json({ ok = true, direction = direction, ticks = ticks })
   end,
 
-  -- Stop any active walk command immediately.
+  -- Stop walking immediately.
   stop_walking = function()
     walk_cmd = nil
-    if storage.bot and storage.bot.valid then
-      storage.bot.walking_state = { walking = false, direction = defines.direction.north }
-    end
     return helpers.table_to_json({ ok = true })
   end,
 
-  -- Find the nearest ore of a given type within radius and start mining it.
-  -- The bot will walk toward the ore automatically if not already in reach.
+  -- Find nearest ore within radius and start mining it (walks to it first if needed).
   mine_nearest_ore = function(ore_name, radius)
     if not (storage.bot and storage.bot.valid) then
       return helpers.table_to_json({ error = "bot not spawned" })
@@ -179,15 +184,14 @@ remote.add_interface("companion", {
       return helpers.table_to_json({ error = "no " .. ore_name .. " within radius " .. radius })
     end
 
-    -- Pick the nearest ore entity.
-    local nearest, nearest_dist = nil, math.huge
+    local nearest, nearest_dist2 = nil, math.huge
     for _, ore in pairs(ores) do
       local dx   = ore.position.x - storage.bot.position.x
       local dy   = ore.position.y - storage.bot.position.y
-      local dist = dx * dx + dy * dy
-      if dist < nearest_dist then
+      local dist2 = dx * dx + dy * dy
+      if dist2 < nearest_dist2 then
         nearest      = ore
-        nearest_dist = dist
+        nearest_dist2 = dist2
       end
     end
 
@@ -197,7 +201,7 @@ remote.add_interface("companion", {
       ok       = true,
       ore      = ore_name,
       target   = { x = nearest.position.x, y = nearest.position.y },
-      distance = math.sqrt(nearest_dist),
+      distance = math.sqrt(nearest_dist2),
     })
   end,
 
