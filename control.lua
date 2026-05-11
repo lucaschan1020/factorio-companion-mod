@@ -22,13 +22,19 @@ end)
 script.on_event(defines.events.on_tick, tasks.on_tick)
 
 -- Left-click on companion opens its inventory to the clicking player.
--- Uses player.opened = LuaInventory (not LuaEntity) because unattached character
--- entities have no native GUI — opening the raw inventory bypasses that.
+-- Uses cursor_position (not player.selected) because character entities are
+-- not always "selectable" via cursor like buildings are.
 script.on_event("companion-open-inventory", function(event)
   if not utils.companion_valid() then return end
   local player = game.get_player(event.player_index)
   if not player or not player.character then return end
-  if player.selected == storage.companion then
+  if player.surface ~= storage.companion.surface then return end
+
+  local cp     = storage.companion.position
+  local cursor = event.cursor_position
+  local dist   = math.sqrt((cursor.x - cp.x)^2 + (cursor.y - cp.y)^2)
+
+  if dist < 1.5 then
     local inv = storage.companion.get_inventory(defines.inventory.character_main)
     if inv then player.opened = inv end
   end
