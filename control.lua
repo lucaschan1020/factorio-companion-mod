@@ -18,6 +18,33 @@ script.on_init(function()
   storage.bot = nil
 end)
 
+-- In-game commands so the player controls the bot lifecycle, not the Python agent.
+commands.add_command("spawn-companion", "Spawn the AI companion bot near you.", function(event)
+  if storage.bot and storage.bot.valid then
+    game.get_player(event.player_index).print("Companion already exists.")
+    return
+  end
+  local player  = game.get_player(event.player_index)
+  local pos     = { x = player.position.x + 3, y = player.position.y }
+  storage.bot   = player.surface.create_entity({ name = "character", position = pos, force = game.forces.player })
+  if storage.bot then
+    player.print("Companion spawned.")
+  else
+    player.print("Failed to spawn companion.")
+  end
+end)
+
+commands.add_command("despawn-companion", "Remove the AI companion bot.", function(event)
+  walk_cmd = nil
+  if storage.bot and storage.bot.valid then
+    storage.bot.destroy()
+    storage.bot = nil
+    game.get_player(event.player_index).print("Companion despawned.")
+  else
+    game.get_player(event.player_index).print("No companion to despawn.")
+  end
+end)
+
 -- Apply walking_state to the bot every tick so movement is smooth.
 script.on_event(defines.events.on_tick, function()
   if not walk_cmd then return end
