@@ -41,7 +41,7 @@ remote.add_interface("companion", {
   -- Returns error if bot already exists.
   spawn_bot = function(x, y)
     if storage.bot and storage.bot.valid then
-      return game.table_to_json({ error = "bot already exists", position = storage.bot.position })
+      return helpers.table_to_json({ error = "bot already exists", position = storage.bot.position })
     end
     local player  = game.get_player(1)
     local surface = player and player.surface or game.surfaces[1]
@@ -54,9 +54,9 @@ remote.add_interface("companion", {
     })
 
     if not storage.bot then
-      return game.table_to_json({ error = "failed to create character entity" })
+      return helpers.table_to_json({ error = "failed to create character entity" })
     end
-    return game.table_to_json({ ok = true, position = storage.bot.position })
+    return helpers.table_to_json({ ok = true, position = storage.bot.position })
   end,
 
   -- Remove the bot from the world.
@@ -66,16 +66,16 @@ remote.add_interface("companion", {
       storage.bot.destroy()
     end
     storage.bot = nil
-    return game.table_to_json({ ok = true })
+    return helpers.table_to_json({ ok = true })
   end,
 
   -- Returns JSON: {tick, position, surface, valid}
   get_bot_state = function()
     if not (storage.bot and storage.bot.valid) then
-      return game.table_to_json({ error = "bot not spawned" })
+      return helpers.table_to_json({ error = "bot not spawned" })
     end
     local pos = storage.bot.position
-    return game.table_to_json({
+    return helpers.table_to_json({
       tick     = game.tick,
       position = { x = pos.x, y = pos.y },
       surface  = storage.bot.surface.name,
@@ -86,15 +86,15 @@ remote.add_interface("companion", {
   -- Walk the bot in a direction for `ticks` game ticks (60 ticks ≈ 1 second).
   walk = function(direction, ticks)
     if not (storage.bot and storage.bot.valid) then
-      return game.table_to_json({ error = "bot not spawned" })
+      return helpers.table_to_json({ error = "bot not spawned" })
     end
     local dir = DIR[direction]
     if not dir then
-      return game.table_to_json({ error = "unknown direction: " .. tostring(direction) })
+      return helpers.table_to_json({ error = "unknown direction: " .. tostring(direction) })
     end
     ticks    = ticks or 60
     walk_cmd = { direction = dir, ticks_remaining = ticks }
-    return game.table_to_json({ ok = true, direction = direction, ticks = ticks })
+    return helpers.table_to_json({ ok = true, direction = direction, ticks = ticks })
   end,
 
   -- Stop the bot immediately.
@@ -103,21 +103,21 @@ remote.add_interface("companion", {
     if storage.bot and storage.bot.valid then
       storage.bot.walking_state = { walking = false, direction = defines.direction.north }
     end
-    return game.table_to_json({ ok = true })
+    return helpers.table_to_json({ ok = true })
   end,
 
   -- Original player observation (unchanged).
   get_player_state = function(player_index)
     local player = game.get_player(player_index or 1)
     if not player then
-      return game.table_to_json({ error = "player not found", player_index = player_index })
+      return helpers.table_to_json({ error = "player not found", player_index = player_index })
     end
     if not player.character then
-      return game.table_to_json({ error = "no character (spectator or cutscene)", player_name = player.name })
+      return helpers.table_to_json({ error = "no character (spectator or cutscene)", player_name = player.name })
     end
     local pos = player.position
     local inv = player.get_main_inventory()
-    return game.table_to_json({
+    return helpers.table_to_json({
       tick         = game.tick,
       player_index = player.index,
       player_name  = player.name,
