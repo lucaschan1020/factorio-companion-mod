@@ -2,6 +2,7 @@
 -- Controls a separate bot character entity independent of the human player.
 
 local walk_cmd = nil  -- {direction, ticks_remaining}
+local mine_cmd = nil  -- {entity}
 
 local DIR = {
   north = defines.direction.north,
@@ -14,8 +15,60 @@ local DIR = {
   left  = defines.direction.west,
 }
 
+-- Returns the cardinal direction from one position toward another.
+local function direction_toward(from, to)
+  local dx = to.x - from.x
+  local dy = to.y - from.y
+  if math.abs(dx) >= math.abs(dy) then
+    return dx > 0 and defines.direction.east or defines.direction.west
+  else
+    return dy > 0 and defines.direction.south or defines.direction.north
+  end
+end
+
 script.on_init(function()
   storage.bot = nil
+end)
+
+script.on_event(defines.events.on_tick, function()
+  if not (storage.bot and storage.bot.valid) then
+    walk_cmd = nil
+    mine_cmd = nil
+    return
+  end
+
+  -- Mining takes priority over timed walk commands.
+  if mine_cmd then
+    if not mine_cmd.entity.valid then
+      -- Ore patch depleted.
+      storage.bot.mining_state = { mining = false }
+      mine_cmd = nil
+      return
+    end
+    if storage.bot.can_reach_entity(mine_cmd.entity) then
+      storage.bot.walking_state = { walking = false, direction = defines.direction.north }
+      storage.bot.mining_state  = { mining = true, position = mine_cmd.entity.position }
+    else
+      -- Walk toward ore until in reach.
+      storage.bot.mining_state  = { mining = false }
+      storage.bot.walking_state = {
+        walking   = true,
+        direction = direction_toward(storage.bot.position, mine_cmd.entity.position),
+      }
+    end
+    return
+  end
+
+  -- Timed walk command.
+  if walk_cmd then
+    if walk_cmd.ticks_remaining > 0 then
+      storage.bot.walking_state = { walking = true, direction = walk_cmd.direction }
+      walk_cmd.ticks_remaining  = walk_cmd.ticks_remaining - 1
+    else
+      storage.bot.walking_state = { walking = false, direction = defines.direction.north }
+      walk_cmd = nil
+    end
+  end
 end)
 
 -- In-game commands so the player controls the bot lifecycle, not the Python agent.
@@ -24,9 +77,9 @@ commands.add_command("spawn-companion", "Spawn the AI companion bot near you.", 
     game.get_player(event.player_index).print("Companion already exists.")
     return
   end
-  local player  = game.get_player(event.player_index)
-  local pos     = { x = player.position.x + 3, y = player.position.y }
-  storage.bot   = player.surface.create_entity({ name = "character", position = pos, force = game.forces.player })
+  local player = game.get_player(event.player_index)
+  local pos    = { x = player.position.x + 3, y = player.position.y }
+  storage.bot  = player.surface.create_entity({ name = "character", position = pos, force = game.forces.player })
   if storage.bot then
     player.print("Companion spawned.")
   else
@@ -36,6 +89,7 @@ end)
 
 commands.add_command("despawn-companion", "Remove the AI companion bot.", function(event)
   walk_cmd = nil
+  mine_cmd = nil
   if storage.bot and storage.bot.valid then
     storage.bot.destroy()
     storage.bot = nil
@@ -45,56 +99,7 @@ commands.add_command("despawn-companion", "Remove the AI companion bot.", functi
   end
 end)
 
--- Apply walking_state to the bot every tick so movement is smooth.
-script.on_event(defines.events.on_tick, function()
-  if not walk_cmd then return end
-  if not (storage.bot and storage.bot.valid) then
-    walk_cmd = nil
-    return
-  end
-
-  if walk_cmd.ticks_remaining > 0 then
-    storage.bot.walking_state = { walking = true, direction = walk_cmd.direction }
-    walk_cmd.ticks_remaining = walk_cmd.ticks_remaining - 1
-  else
-    storage.bot.walking_state = { walking = false, direction = defines.direction.north }
-    walk_cmd = nil
-  end
-end)
-
 remote.add_interface("companion", {
-
-  -- Spawn the bot character near player 1 (or at given x, y).
-  -- Returns error if bot already exists.
-  spawn_bot = function(x, y)
-    if storage.bot and storage.bot.valid then
-      return helpers.table_to_json({ error = "bot already exists", position = storage.bot.position })
-    end
-    local player  = game.get_player(1)
-    local surface = player and player.surface or game.surfaces[1]
-    local pos     = { x = x or (player.position.x + 3), y = y or player.position.y }
-
-    storage.bot = surface.create_entity({
-      name     = "character",
-      position = pos,
-      force    = game.forces.player,
-    })
-
-    if not storage.bot then
-      return helpers.table_to_json({ error = "failed to create character entity" })
-    end
-    return helpers.table_to_json({ ok = true, position = storage.bot.position })
-  end,
-
-  -- Remove the bot from the world.
-  despawn_bot = function()
-    walk_cmd = nil
-    if storage.bot and storage.bot.valid then
-      storage.bot.destroy()
-    end
-    storage.bot = nil
-    return helpers.table_to_json({ ok = true })
-  end,
 
   -- Returns JSON: {tick, position, surface, valid}
   get_bot_state = function()
@@ -110,30 +115,7 @@ remote.add_interface("companion", {
     })
   end,
 
-  -- Walk the bot in a direction for `ticks` game ticks (60 ticks ≈ 1 second).
-  walk = function(direction, ticks)
-    if not (storage.bot and storage.bot.valid) then
-      return helpers.table_to_json({ error = "bot not spawned" })
-    end
-    local dir = DIR[direction]
-    if not dir then
-      return helpers.table_to_json({ error = "unknown direction: " .. tostring(direction) })
-    end
-    ticks    = ticks or 60
-    walk_cmd = { direction = dir, ticks_remaining = ticks }
-    return helpers.table_to_json({ ok = true, direction = direction, ticks = ticks })
-  end,
-
-  -- Stop the bot immediately.
-  stop_walking = function()
-    walk_cmd = nil
-    if storage.bot and storage.bot.valid then
-      storage.bot.walking_state = { walking = false, direction = defines.direction.north }
-    end
-    return helpers.table_to_json({ ok = true })
-  end,
-
-  -- Original player observation (unchanged).
+  -- Returns JSON: {tick, player_index, player_name, position, surface, inventory}
   get_player_state = function(player_index)
     local player = game.get_player(player_index or 1)
     if not player then
@@ -152,6 +134,80 @@ remote.add_interface("companion", {
       surface      = player.surface.name,
       inventory    = inv and inv.get_contents() or {},
     })
+  end,
+
+  -- Walk the bot in a direction for `ticks` game ticks (60 ticks ≈ 1 second).
+  walk = function(direction, ticks)
+    if not (storage.bot and storage.bot.valid) then
+      return helpers.table_to_json({ error = "bot not spawned" })
+    end
+    local dir = DIR[direction]
+    if not dir then
+      return helpers.table_to_json({ error = "unknown direction: " .. tostring(direction) })
+    end
+    mine_cmd = nil
+    ticks    = ticks or 60
+    walk_cmd = { direction = dir, ticks_remaining = ticks }
+    return helpers.table_to_json({ ok = true, direction = direction, ticks = ticks })
+  end,
+
+  -- Stop any active walk command immediately.
+  stop_walking = function()
+    walk_cmd = nil
+    if storage.bot and storage.bot.valid then
+      storage.bot.walking_state = { walking = false, direction = defines.direction.north }
+    end
+    return helpers.table_to_json({ ok = true })
+  end,
+
+  -- Find the nearest ore of a given type within radius and start mining it.
+  -- The bot will walk toward the ore automatically if not already in reach.
+  mine_nearest_ore = function(ore_name, radius)
+    if not (storage.bot and storage.bot.valid) then
+      return helpers.table_to_json({ error = "bot not spawned" })
+    end
+    ore_name = ore_name or "iron-ore"
+    radius   = radius   or 30
+
+    local ores = storage.bot.surface.find_entities_filtered({
+      name     = ore_name,
+      position = storage.bot.position,
+      radius   = radius,
+    })
+
+    if #ores == 0 then
+      return helpers.table_to_json({ error = "no " .. ore_name .. " within radius " .. radius })
+    end
+
+    -- Pick the nearest ore entity.
+    local nearest, nearest_dist = nil, math.huge
+    for _, ore in pairs(ores) do
+      local dx   = ore.position.x - storage.bot.position.x
+      local dy   = ore.position.y - storage.bot.position.y
+      local dist = dx * dx + dy * dy
+      if dist < nearest_dist then
+        nearest      = ore
+        nearest_dist = dist
+      end
+    end
+
+    walk_cmd = nil
+    mine_cmd = { entity = nearest }
+    return helpers.table_to_json({
+      ok       = true,
+      ore      = ore_name,
+      target   = { x = nearest.position.x, y = nearest.position.y },
+      distance = math.sqrt(nearest_dist),
+    })
+  end,
+
+  -- Stop mining immediately.
+  stop_mining = function()
+    mine_cmd = nil
+    if storage.bot and storage.bot.valid then
+      storage.bot.mining_state = { mining = false }
+    end
+    return helpers.table_to_json({ ok = true })
   end,
 
 })
