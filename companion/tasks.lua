@@ -95,6 +95,14 @@ function M.on_tick()
     state.companion_cmd = nil
     return
   end
+
+  -- Keep minimap chart tag position in sync every 30 ticks.
+  if game.tick % 120 == 0 then
+    if storage.companion_chart_tag and storage.companion_chart_tag.valid then
+      storage.companion_chart_tag.position = storage.companion.position
+    end
+  end
+
   local cmd = state.companion_cmd
   if not cmd then return end
   local handler = HANDLERS[cmd.type]

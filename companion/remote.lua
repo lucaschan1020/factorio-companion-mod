@@ -42,6 +42,7 @@ function M.register()
     companion_despawn = function()
       state.companion_cmd = nil
       utils.save_state()
+      utils.destroy_visuals()
       if utils.companion_valid() then
         storage.companion.destroy()
         storage.companion    = nil
@@ -53,6 +54,7 @@ function M.register()
     -- Hard reset: wipe all saved state.
     companion_reset = function()
       state.companion_cmd = nil
+      utils.destroy_visuals()
       if utils.companion_valid() then storage.companion.destroy() end
       storage.companion         = nil
       storage.companion_id      = nil

@@ -57,7 +57,43 @@ function M.restore_inventory()
   end
 end
 
--- Create the companion entity at pos on surface, then restore inventory.
+-- Draw floating name above companion and add a minimap chart tag.
+function M.create_visuals()
+  if not M.companion_valid() then return end
+
+  -- Floating name in world view — auto-follows the entity.
+  storage.companion_name_render = rendering.draw_text({
+    text               = "Companion",
+    target             = storage.companion,
+    surface            = storage.companion.surface,
+    color              = { r = 1.0, g = 1.0, b = 1.0, a = 1.0 },
+    scale              = 1.5,
+    alignment          = "center",
+    vertical_alignment = "bottom",
+    scale_with_zoom    = true,
+  })
+
+  -- Chart tag on map/minimap — position updated every 30 ticks in on_tick.
+  storage.companion_chart_tag = game.forces.player.add_chart_tag(
+    storage.companion.surface,
+    { position = storage.companion.position, text = "Companion" }
+  )
+end
+
+-- Remove floating name and chart tag.
+function M.destroy_visuals()
+  if storage.companion_name_render and storage.companion_name_render.valid then
+    storage.companion_name_render.destroy()
+  end
+  storage.companion_name_render = nil
+
+  if storage.companion_chart_tag and storage.companion_chart_tag.valid then
+    storage.companion_chart_tag.destroy()
+  end
+  storage.companion_chart_tag = nil
+end
+
+-- Create the companion entity at pos on surface, then restore inventory and visuals.
 function M.do_spawn(pos, surface)
   storage.companion = surface.create_entity({
     name     = "character",
@@ -67,6 +103,7 @@ function M.do_spawn(pos, surface)
   if not storage.companion then return false end
   storage.companion_id = storage.companion.unit_number
   M.restore_inventory()
+  M.create_visuals()
   return true
 end
 

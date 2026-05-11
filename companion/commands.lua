@@ -40,6 +40,7 @@ end
 sub["despawn"] = function(player)
   state.companion_cmd = nil
   utils.save_state()
+  utils.destroy_visuals()
   if utils.companion_valid() then
     storage.companion.destroy()
     storage.companion    = nil
@@ -52,6 +53,7 @@ end
 
 sub["reset"] = function(player)
   state.companion_cmd = nil
+  utils.destroy_visuals()
   if utils.companion_valid() then storage.companion.destroy() end
   storage.companion         = nil
   storage.companion_id      = nil
